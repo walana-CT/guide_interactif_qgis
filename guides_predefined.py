@@ -3,7 +3,161 @@
 Guides prédéfinis pour différentes opérations dans QGIS
 """
 
+from qgis.PyQt.QtWidgets import QApplication, QComboBox
+
 from .guide_step import Guide, GuideStep
+
+
+# =============================================================================
+# ObjectName constants for QGIS Options Dialog (decouvrez vos objectName avec :
+# GuideStep.introspect_widget_tree(dlg) dans console Python QGIS)
+# =============================================================================
+
+# Noms d'objet QGIS pour la boîte d'options
+QGIS_OBJECT_NAMES = {
+    # Dialog principal
+    "OPTIONS_DIALOG": "QgsOptionsDialog",
+    # Onglets/sections (QGIS 3.x+)
+    "OPTIONS_TREE": "mOptionsListWidget",
+    "OPTIONS_PAGES_STACK": "mOptionsStackedWidget",
+    # Section Interface
+    "INTERFACE_PAGE": "mOptionsPageGeneral",
+    # Elements de langue
+    "LANGUAGE_COMBOBOX": "mLangComboBox",
+    "LANGUAGE_LABEL": "mLangLabel",
+}
+
+
+def _resolve_menu_bar(iface):
+    """Retourne la barre de menu principale de QGIS."""
+    main_window = iface.mainWindow()
+    if main_window:
+        return main_window.menuBar()
+    return None
+
+
+def _iter_visible_top_level_widgets():
+    """Retourne les fenetres top-level visibles."""
+    app = QApplication.instance()
+    if not app:
+        return []
+    return [w for w in app.topLevelWidgets() if w.isVisible()]
+
+
+def _resolve_options_dialog(iface):
+    """Trouve la boite de dialogue Options/Preferences si elle est ouverte."""
+    candidates = [
+        "options",
+        "preferences",
+        "préférences",
+        "parametres",
+        "paramètres",
+    ]
+    for widget in _iter_visible_top_level_widgets():
+        title = GuideStep.normalize_text(widget.windowTitle())
+        if any(token in title for token in candidates):
+            return widget
+    return None
+
+
+def _resolve_options_interface_section(iface):
+    """Cible l'onglet/section Interface dans la fenetre d'options."""
+    dlg = _resolve_options_dialog(iface)
+    if not dlg:
+        return None
+
+    match = GuideStep.find_child_by_text(dlg, ["interface"])
+    if match:
+        return match
+    return dlg
+
+
+def _resolve_options_language_section(iface):
+    """Cible la section langue/locale dans la fenetre d'options."""
+    dlg = _resolve_options_dialog(iface)
+    if not dlg:
+        return None
+
+    match = GuideStep.find_child_by_text(dlg, ["langue", "language", "locale"])
+    if match:
+        return match
+    return dlg
+
+
+def _resolve_options_language_choice(iface):
+    """Cible en priorite la liste deroulante de langue, sinon un widget proche."""
+    dlg = _resolve_options_dialog(iface)
+    if not dlg:
+        return None
+
+    # Heuristique: premiere QComboBox visible dans la boite d'options.
+    combo_boxes = [w for w in dlg.findChildren(QComboBox) if w.isVisible()]
+    if combo_boxes:
+        return combo_boxes[0]
+
+    return _resolve_options_language_section(iface)
+
+
+def _resolve_options_apply_button(iface):
+    """Cible le bouton OK/Appliquer/Apply dans la fenetre d'options."""
+    dlg = _resolve_options_dialog(iface)
+    if not dlg:
+        return None
+
+    match = GuideStep.find_child_by_text(dlg, ["appliquer", "apply", "ok", "valider"])
+    if match:
+        return match
+    return dlg
+
+
+# =============================================================================
+# Resolveurs par objectName (methode ULTRA-PRECISE pour QGIS)
+# =============================================================================
+
+
+def _resolve_language_combobox_by_name(iface):
+    """Trouve le QComboBox de langue par son objectName exact (METHODE 1 : PRECISE)."""
+    dlg = _resolve_options_dialog(iface)
+    if not dlg:
+        return None
+
+    combo = dlg.findChild(QComboBox, QGIS_OBJECT_NAMES["LANGUAGE_COMBOBOX"])
+    return combo if combo and combo.isVisible() else None
+
+
+def _resolve_options_tree_by_name(iface):
+    """Trouve l'arborescence des options de gauche par objectName."""
+    dlg = _resolve_options_dialog(iface)
+    if not dlg:
+        return None
+
+    from qgis.PyQt.QtWidgets import QWidget
+    tree = dlg.findChild(QWidget, QGIS_OBJECT_NAMES["OPTIONS_TREE"])
+    return tree if tree and tree.isVisible() else None
+
+
+def _resolve_language_section_smart(iface):
+    """Resolution intelligente : essaie objectName d'abord, puis fallback texte."""
+    dlg = _resolve_options_dialog(iface)
+    if not dlg:
+        return None
+
+    # Essayer d'abord par objectName (ultra fiable)
+    widget = dlg.findChild(QComboBox, QGIS_OBJECT_NAMES["LANGUAGE_COMBOBOX"])
+    if widget and widget.isVisible():
+        return widget
+
+    # Fallback sur methode textuelle
+    return GuideStep.find_child_by_text(dlg, ["langue", "language", "locale"])
+
+
+
+def _resolve_status_bar(iface):
+    """Retourne la barre d'etat de QGIS."""
+    main_window = iface.mainWindow()
+    if main_window:
+        return main_window.statusBar()
+    return None
 
 
 def create_guide_change_language():
@@ -15,6 +169,7 @@ def create_guide_change_language():
                 "Allez dans le menu **Édition** > **Préférences** (ou **Options** selon votre version).\n\n"
                 "Une fenêtre de configuration s'ouvre avec plusieurs onglets."
             ),
+            target_resolver=_resolve_menu_bar,
         ),
         
         GuideStep(
@@ -23,6 +178,7 @@ def create_guide_change_language():
                 "Dans le menu de gauche, cliquez sur **Interface**.\n\n"
                 "Cet onglet contient les paramètres de présentation de QGIS."
             ),
+            target_resolver=_resolve_options_interface_section,
         ),
         
         GuideStep(
@@ -32,8 +188,9 @@ def create_guide_change_language():
                 "Vous devriez voir un menu déroulant avec les langues disponibles.\n\n"
                 "💡 Les langues disponibles dépendent de ce qui est installé sur votre système."
             ),
+            target_resolver=_resolve_language_section_smart,
         ),
-        
+
         GuideStep(
             title="Étape 4 : Changer la langue",
             description=(
@@ -41,14 +198,16 @@ def create_guide_change_language():
                 "Sélectionnez une autre langue (par exemple : English, Español, Deutsch, etc.).\n\n"
                 "⚠️ La nouvelle langue s'appliquera après redémarrage de QGIS."
             ),
+            target_object_name=QGIS_OBJECT_NAMES["LANGUAGE_COMBOBOX"],
         ),
-        
+
         GuideStep(
             title="Étape 5 : Appliquer les changements",
             description=(
                 "Cliquez sur le bouton **OK** ou **Appliquer** pour sauvegarder les changements.\n\n"
                 "La fenêtre de préférences se ferme."
             ),
+            target_resolver=_resolve_options_apply_button,
         ),
         
         GuideStep(
@@ -58,6 +217,7 @@ def create_guide_change_language():
                 "Allez dans **Fichier** > **Quitter** pour fermer QGIS.\n\n"
                 "Puis relancez QGIS. L'interface s'affichera dans la nouvelle langue ! 🌍"
             ),
+            target_resolver=_resolve_status_bar,
         ),
         
         GuideStep(
@@ -70,6 +230,7 @@ def create_guide_change_language():
                 "- Explorer QGIS dans une nouvelle langue\n\n"
                 "💡 **Astuce** : Ce guide fonctionne aussi pour tester le plugin avec différentes interfaces !"
             ),
+            target_resolver=_resolve_menu_bar,
         ),
     ]
     

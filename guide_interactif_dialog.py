@@ -26,9 +26,9 @@ import os
 
 from qgis.PyQt import uic
 from qgis.PyQt.QtCore import Qt
-from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
-                                  QPushButton, QListWidget, QTextEdit, 
-                                  QProgressBar, QFrame, QSizePolicy)
+from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
+                                  QPushButton, QListWidget, QTextEdit,
+                                  QProgressBar, QFrame, QSizePolicy, QMessageBox)
 from qgis.PyQt.QtGui import QFont
 
 from .guides_predefined import get_all_guides
@@ -197,7 +197,22 @@ class GuideInteractifDialog(QDialog):
         if self.current_guide:
             step = self.current_guide.get_current_step()
             if step:
-                step.show_highlight(self.iface)
+                if not step.has_target():
+                    QMessageBox.information(
+                        self,
+                        "Guide Interactif",
+                        "Cette etape n'a pas d'element cible a surligner."
+                    )
+                    return
+
+                highlighted = step.show_highlight(self.iface)
+                if not highlighted:
+                    QMessageBox.warning(
+                        self,
+                        "Guide Interactif",
+                        "Impossible de trouver cet element dans l'interface QGIS. "
+                        "Essayez apres avoir ouvert le menu/fenetre indique(e)."
+                    )
     
     def update_step_display(self):
         """Met à jour l'affichage avec l'étape actuelle"""
@@ -222,6 +237,8 @@ class GuideInteractifDialog(QDialog):
             else:
                 self._set_previous_button_action("◀ Précédent", self.previous_step)
                 self.btn_previous.setEnabled(True)
+
+            self.btn_highlight.setEnabled(step.has_target())
     
     def finish_guide(self):
         """Appelé quand le guide est terminé"""
@@ -258,6 +275,8 @@ class GuideInteractifDialog(QDialog):
         self.btn_start.setText("▶ Démarrer le guide")
         self.btn_start.clicked.disconnect()
         self.btn_start.clicked.connect(self.start_guide)
+        self.btn_start.setVisible(True)
+        self.btn_start.setEnabled(False)  # Sera activé à la sélection d'un guide
 
         self._set_previous_button_action("◀ Précédent", self.previous_step)
         
