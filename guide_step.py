@@ -44,7 +44,7 @@ class HighlightOverlay(QWidget):
         painter.setRenderHint(QPainter.Antialiasing)
         
         # Voile tres leger pour guider l'oeil sans masquer l'interface.
-        painter.fillRect(self.rect(), QColor(0, 0, 0, 18))
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 10))
         
         # Créer un "trou" pour l'élément cible
         if self.target_widget and self.target_widget.isVisible():
@@ -59,16 +59,22 @@ class HighlightOverlay(QWidget):
 
             if not highlight_rect.isValid() or highlight_rect.width() < 2 or highlight_rect.height() < 2:
                 return
+
+            # Eviter l'effet "barre jaune" sur les widgets tres larges et fins
+            # (ex: barre de menu): on cible une zone representative a gauche.
+            if highlight_rect.width() > int(self.width() * 0.75) and highlight_rect.height() < 50:
+                highlight_rect.setWidth(min(320, max(180, int(self.width() * 0.3))))
+                highlight_rect.moveLeft(max(8, highlight_rect.left() + 8))
             
             # Agrandir legerement le rectangle pour un meilleur effet
             highlight_rect.adjust(-6, -6, 6, 6)
 
             # Eclaircir legerement la zone cible
             painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
-            painter.fillRect(highlight_rect, QColor(255, 255, 255, 25))
+            painter.fillRect(highlight_rect, QColor(255, 255, 255, 16))
 
             # Dessiner un double contour lumineux bien visible
-            pen = QPen(QColor(255, 193, 7), 4)
+            pen = QPen(QColor(255, 193, 7), 3)
             painter.setPen(pen)
             painter.drawRect(highlight_rect)
 
@@ -93,7 +99,8 @@ class GuideStep:
             target_widget_name=None,
             target_action=None,
             target_resolver=None,
-            target_object_name=None):
+            target_object_name=None,
+            image_path=None):
         """
         Args:
             title: Titre de l'étape
@@ -102,6 +109,7 @@ class GuideStep:
             target_action: Action QAction à mettre en évidence (optionnel)
             target_resolver: Fonction callable qui retourne un QWidget cible (optionnel)
             target_object_name: objectName exakt du widget (optionnel, technique QGIS)
+            image_path: Chemin de l'image d'illustration de l'etape (optionnel)
         """
         self.title = title
         self.description = description
@@ -109,6 +117,7 @@ class GuideStep:
         self.target_action = target_action
         self.target_resolver = target_resolver
         self.target_object_name = target_object_name
+        self.image_path = image_path
         self.highlight_overlay = None
 
     def has_target(self):

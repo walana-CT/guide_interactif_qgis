@@ -166,77 +166,47 @@ def create_guide_change_language():
         GuideStep(
             title="Étape 1 : Ouvrir les préférences",
             description=(
-                "Allez dans le menu **Édition** > **Préférences** (ou **Options** selon votre version).\n\n"
-                "Une fenêtre de configuration s'ouvre avec plusieurs onglets."
+                "**Français**: Allez dans le menu **Préférences** > **Options**.\n\n"
+                "**Anglais**: Allez dans le menu **Setting** > **Options**."
             ),
             target_resolver=_resolve_menu_bar,
         ),
         
         GuideStep(
-            title="Étape 2 : Aller dans l'onglet Interface",
+            title="Étape 2 : Activer le remplacement de system Local",
             description=(
-                "Dans le menu de gauche, cliquez sur **Interface**.\n\n"
-                "Cet onglet contient les paramètres de présentation de QGIS."
+                "Vous devriez être dans l'onglet **Generale** par défaut si ce n'est" \
+                "pas le cas il faut vous rendre à l'intérieur.\n\n"
+                "**Français**: cocher la case **Override System Locale**\n\n"
+                "**Anglais**: cocher la case **Remplacer les paramètres régionaux du système**"
             ),
             target_resolver=_resolve_options_interface_section,
         ),
         
         GuideStep(
-            title="Étape 3 : Trouver la section Langue",
+            title="Étape 3 : Choisir la lange",
             description=(
                 "Cherchez la section **Langue** ou **Language**.\n\n"
-                "Vous devriez voir un menu déroulant avec les langues disponibles.\n\n"
-                "💡 Les langues disponibles dépendent de ce qui est installé sur votre système."
+                "**Français**: séléctionner votre langue dans le menu déroulant **Traduction de l'interface utilisateur**\n\n"
+                "**Anglais**: séléctionner votre langue dans le menu déroulant **User interface translation**"
             ),
             target_resolver=_resolve_language_section_smart,
         ),
 
-        GuideStep(
-            title="Étape 4 : Changer la langue",
-            description=(
-                "Cliquez sur le menu déroulant de la langue.\n\n"
-                "Sélectionnez une autre langue (par exemple : English, Español, Deutsch, etc.).\n\n"
-                "⚠️ La nouvelle langue s'appliquera après redémarrage de QGIS."
-            ),
-            target_object_name=QGIS_OBJECT_NAMES["LANGUAGE_COMBOBOX"],
-        ),
 
         GuideStep(
-            title="Étape 5 : Appliquer les changements",
+            title="Étape 4 : Appliquer les changements",
             description=(
-                "Cliquez sur le bouton **OK** ou **Appliquer** pour sauvegarder les changements.\n\n"
-                "La fenêtre de préférences se ferme."
+                "Cliquez sur le bouton **OK** pour sauvegarder les changements.\n\n"
+                "Redémarer Qgis pour que le changement de langue soit effectif."
             ),
             target_resolver=_resolve_options_apply_button,
-        ),
-        
-        GuideStep(
-            title="Étape 6 : Redémarrer QGIS (optionnel)",
-            description=(
-                "Pour que le changement de langue prenne effet, vous devez redémarrer QGIS.\n\n"
-                "Allez dans **Fichier** > **Quitter** pour fermer QGIS.\n\n"
-                "Puis relancez QGIS. L'interface s'affichera dans la nouvelle langue ! 🌍"
-            ),
-            target_resolver=_resolve_status_bar,
-        ),
-        
-        GuideStep(
-            title="✓ Langue changée !",
-            description=(
-                "Bravo ! Vous avez réussi à changer la langue de QGIS.\n\n"
-                "Vous pouvez maintenant :\n"
-                "- Recommencer pour essayer une autre langue\n"
-                "- Revenir à votre langue préférée\n"
-                "- Explorer QGIS dans une nouvelle langue\n\n"
-                "💡 **Astuce** : Ce guide fonctionne aussi pour tester le plugin avec différentes interfaces !"
-            ),
-            target_resolver=_resolve_menu_bar,
         ),
     ]
     
     return Guide(
         name="Changer la langue de QGIS",
-        description="Guide simple pour changer la langue de l'interface QGIS (idéal pour tester le plugin).",
+        description="Guide simple pour changer la langue de l'interface QGIS.",
         steps=steps
     )
 

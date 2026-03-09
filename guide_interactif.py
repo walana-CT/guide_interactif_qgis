@@ -24,6 +24,7 @@
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt import sip
 
 # Initialize Qt resources from file resources.py
 from .resources import *
@@ -183,9 +184,15 @@ class GuideInteractif:
     def run(self):
         """Run method that performs all the real work"""
 
-        # Create the dialog with elements (after translation) and keep reference
-        # Only create GUI ONCE in callback, so that it will only load when the plugin is started
-        if self.first_start == True:
+        # Re-creer le dialog si c'est le premier lancement ou s'il a ete detruit par Qt.
+        needs_new_dialog = (
+            self.first_start is True
+            or not hasattr(self, 'dlg')
+            or self.dlg is None
+            or sip.isdeleted(self.dlg)
+        )
+
+        if needs_new_dialog:
             self.first_start = False
             self.dlg = GuideInteractifDialog(self.iface, self.iface.mainWindow())
 

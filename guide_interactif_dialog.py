@@ -22,14 +22,16 @@
  ***************************************************************************/
 """
 
+import html
 import os
+import re
 
 from qgis.PyQt import uic
 from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                                   QPushButton, QListWidget, QTextEdit,
                                   QProgressBar, QFrame, QSizePolicy, QMessageBox)
-from qgis.PyQt.QtGui import QFont
+from qgis.PyQt.QtGui import QFont, QPixmap
 
 from .guides_predefined import get_all_guides
 
@@ -39,6 +41,7 @@ class GuideInteractifDialog(QDialog):
         """Constructor."""
         super(GuideInteractifDialog, self).__init__(parent)
         self.iface = iface
+        self.plugin_dir = os.path.dirname(__file__)
         self.current_guide = None
         self.available_guides = get_all_guides()
 
@@ -101,8 +104,19 @@ class GuideInteractifDialog(QDialog):
         self.step_description = QTextEdit()
         self.step_description.setReadOnly(True)
         self.step_description.setMaximumHeight(150)
-        self.step_description.setText("Choisissez un guide dans la liste ci-dessus pour commencer.")
+        self.step_description.setHtml(self._format_step_description(
+            "Choisissez un guide dans la liste ci-dessus pour commencer."
+        ))
         main_layout.addWidget(self.step_description)
+
+        # Image d'illustration de l'etape (optionnelle)
+        self.step_image = QLabel()
+        self.step_image.setAlignment(Qt.AlignCenter)
+        self.step_image.setVisible(False)
+        self.step_image.setMinimumHeight(140)
+        self.step_image.setMaximumHeight(220)
+        self.step_image.setStyleSheet("QLabel { border: 1px solid #d9d9d9; background: #fafafa; }")
+        main_layout.addWidget(self.step_image)
         
         # Barre de progression
         self.progress_bar = QProgressBar()
@@ -195,6 +209,62 @@ class GuideInteractifDialog(QDialog):
             # Aucune connexion active
             pass
         self.btn_previous.clicked.connect(callback)
+
+    def _format_step_description(self, raw_text):
+        """Convertit une syntaxe markdown simple en HTML pour affichage lisible.
+
+        Support:
+        - **gras**
+        - retours a la ligne
+        """
+        if raw_text is None:
+            return ""
+
+        text = html.escape(str(raw_text))
+        text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+        text = text.replace("\n", "<br>")
+        return text
+
+    def _resolve_step_image_path(self, image_path):
+        """Retourne un chemin absolu d'image si disponible."""
+        if not image_path:
+            return None
+
+        if os.path.isabs(image_path):
+            return image_path if os.path.exists(image_path) else None
+
+        candidates = [
+            os.path.join(self.plugin_dir, image_path),
+            os.path.join(self.plugin_dir, "assets", image_path),
+            os.path.join(self.plugin_dir, "images", image_path),
+        ]
+        for candidate in candidates:
+            if os.path.exists(candidate):
+                return candidate
+        return None
+
+    def _update_step_image(self, step):
+        """Met a jour l'image d'illustration de l'etape."""
+        image_path = self._resolve_step_image_path(getattr(step, 'image_path', None))
+        if not image_path:
+            self.step_image.clear()
+            self.step_image.setVisible(False)
+            return
+
+        pixmap = QPixmap(image_path)
+        if pixmap.isNull():
+            self.step_image.clear()
+            self.step_image.setVisible(False)
+            return
+
+        scaled = pixmap.scaled(
+            self.step_image.width() if self.step_image.width() > 0 else 520,
+            self.step_image.maximumHeight() - 8,
+            Qt.KeepAspectRatio,
+            Qt.SmoothTransformation,
+        )
+        self.step_image.setPixmap(scaled)
+        self.step_image.setVisible(True)
     
     def show_highlight(self):
         """Affiche la mise en évidence de l'élément"""
@@ -226,7 +296,8 @@ class GuideInteractifDialog(QDialog):
         step = self.current_guide.get_current_step()
         if step:
             self.step_title.setText(step.title)
-            self.step_description.setText(step.description)
+            self.step_description.setHtml(self._format_step_description(step.description))
+            self._update_step_image(step)
             
             # Mettre à jour la barre de progression
             current, total = self.current_guide.get_progress()
@@ -289,7 +360,11 @@ class GuideInteractifDialog(QDialog):
         self.btn_highlight.setVisible(False)
         
         self.step_title.setText("Sélectionnez un guide pour commencer")
-        self.step_description.setText("Choisissez un guide dans la liste ci-dessus pour commencer.")
+        self.step_description.setHtml(self._format_step_description(
+            "Choisissez un guide dans la liste ci-dessus pour commencer."
+        ))
+        self.step_image.clear()
+        self.step_image.setVisible(False)
         
         self.current_guide = None
     
