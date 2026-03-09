@@ -3,8 +3,8 @@
 Système de guidage pas à pas pour QGIS
 """
 
-from qgis.PyQt.QtCore import Qt, QRect, QPoint
-from qgis.PyQt.QtGui import QPainter, QColor, QPen, QBrush
+from qgis.PyQt.QtCore import Qt, QRect, QPoint, QTimer
+from qgis.PyQt.QtGui import QPainter, QColor, QPen
 from qgis.PyQt.QtWidgets import QWidget, QApplication
 
 
@@ -14,20 +14,27 @@ class HighlightOverlay(QWidget):
     def __init__(self, target_widget, parent=None):
         super().__init__(parent)
         self.target_widget = target_widget
+        self.target_window = self.target_widget.window() if self.target_widget else None
         
-        # Fenetre de superposition transparente au-dessus de la fenetre cible.
-        self.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        # Superposition non bloquante au-dessus de la fenetre cible.
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool)
 
-        # Utiliser la fenetre top-level de la cible pour un mapping fiable.
-        target_window = self.target_widget.window() if self.target_widget else None
-        if target_window:
-            self.setGeometry(target_window.frameGeometry())
+        # Utiliser des coordonnees locales de la fenetre cible pour un mapping stable.
+        if self.target_window:
+            self.setParent(self.target_window)
+            self.setGeometry(self.target_window.rect())
         else:
             main_window = QApplication.instance().activeWindow()
             if main_window:
-                self.setGeometry(main_window.frameGeometry())
+                self.setGeometry(main_window.rect())
+
+        # Fermer automatiquement pour ne pas laisser un voile persistant.
+        self._hide_timer = QTimer(self)
+        self._hide_timer.setSingleShot(True)
+        self._hide_timer.timeout.connect(self.close)
+        self._hide_timer.start(1800)
         
         self.show()
     
@@ -36,18 +43,22 @@ class HighlightOverlay(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         
-        # Voile leger pour guider l'oeil sans masquer l'interface.
-        painter.fillRect(self.rect(), QColor(0, 0, 0, 45))
+        # Voile tres leger pour guider l'oeil sans masquer l'interface.
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 18))
         
         # Créer un "trou" pour l'élément cible
         if self.target_widget and self.target_widget.isVisible():
-            # Obtenir la position globale de l'élément cible
+            # Calculer la position dans le repere local de l'overlay.
             target_rect = self.target_widget.rect()
-            target_pos = self.target_widget.mapToGlobal(QPoint(0, 0))
-            
-            # Convertir en coordonnées locales de l'overlay
-            local_pos = self.mapFromGlobal(target_pos)
+            if self.target_window:
+                local_pos = self.target_widget.mapTo(self.target_window, QPoint(0, 0))
+            else:
+                target_pos = self.target_widget.mapToGlobal(QPoint(0, 0))
+                local_pos = self.mapFromGlobal(target_pos)
             highlight_rect = QRect(local_pos, target_rect.size())
+
+            if not highlight_rect.isValid() or highlight_rect.width() < 2 or highlight_rect.height() < 2:
+                return
             
             # Agrandir legerement le rectangle pour un meilleur effet
             highlight_rect.adjust(-6, -6, 6, 6)
@@ -110,6 +121,7 @@ class GuideStep:
         Returns:
             bool: True si un element a pu etre surligne, sinon False.
         """
+        self.hide_highlight()
         target_widget = None
         
         # Trouver le widget cible (priorite : objectName > resolver > action > widget_name)

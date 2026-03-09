@@ -41,6 +41,10 @@ class GuideInteractifDialog(QDialog):
         self.iface = iface
         self.current_guide = None
         self.available_guides = get_all_guides()
+
+        # Le guide doit rester visible pendant les clics dans QGIS.
+        self.setWindowModality(Qt.NonModal)
+        self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
         
         self.setup_ui()
     
